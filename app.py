@@ -19,9 +19,21 @@ try:
     # 2. Leer datos
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
-    # Convertimos a número forzando el formato
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce') / 10000
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce') / 10000
+   # 4. Probar conversión forzada y corregir la escala
+    if 'lat' in df.columns and 'lon' in df.columns:
+        # Convertimos a números
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+        
+        # CORRECCIÓN DE ESCALA: Dividimos por 10.000 para recuperar el decimal
+        df['lat'] = df['lat'] / 10000
+        df['lon'] = df['lon'] / 10000
+        
+        st.write("Datos procesados y corregidos (deberían verse como -26.8241):")
+        st.dataframe(df[['lat', 'lon']])
+        
+        # 5. Graficar
+        st.map(df.dropna(subset=['lat', 'lon']))
         
         # Ahora verificamos si los datos tienen sentido
         st.write("Datos corregidos (lat/lon):")
