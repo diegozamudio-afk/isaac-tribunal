@@ -3,5 +3,4 @@ gspread
 google-auth
 streamlit-geolocation
 pandas
-folium
-streamlit-folium
+
