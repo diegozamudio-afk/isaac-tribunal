@@ -1,5 +1,6 @@
 streamlit
+gspread
+google-auth
 pandas
 folium
 streamlit-folium
-streamlit-geolocation
