@@ -14,10 +14,16 @@ def conectar_sheets():
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
     cliente = gspread.authorize(creds)
-    # Abrimos el archivo por nombre
+    
+    # Abrimos el archivo
     archivo = cliente.open("ISAAC - Monitoreo")
-    # Abrimos la pestaña por su nombre (verificá que se llame 'Hoja1' o como la tengas)
-    return archivo.worksheet("Hoja1")
+    
+    # DEBUG: Esto imprimirá los nombres de todas las pestañas disponibles
+    nombres_pestañas = [hoja.title for hoja in archivo.worksheets()]
+    st.write("DEBUG: Pestañas encontradas en el archivo:", nombres_pestañas)
+    
+    # Intentamos abrir la primera (índice 0), sin importar el nombre
+    return archivo.get_worksheet(0)
 
 st.title("📊 Dashboard de Control - ISAAC")
 
