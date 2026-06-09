@@ -35,16 +35,15 @@ try:
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
     
+    st.write("---")
+    st.write("DEBUG: Contenido del DataFrame:")
+    st.write(df)  # <--- ESTO ES LA CLAVE
+    
     if not df.empty and 'lat' in df.columns:
-        st.write(f"Total infracciones detectadas: {len(df)}")
-        
-        # Mapa
-        mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
-        for _, row in df.iterrows():
-            folium.CircleMarker([row['lat'], row['lon']], radius=8, color='red', popup=row['Infraccion']).add_to(mapa)
-        
-        st_folium(mapa, width=800, height=500)
+        st.write(f"Total infracciones: {len(df)}")
+        # ... resto de tu código del mapa ...
     else:
-        st.info("Esperando datos desde el agente...")
+        st.warning("⚠️ El DataFrame está vacío o no encuentra la columna 'lat'.")
+        st.write("Columnas detectadas:", df.columns.tolist())
 except Exception as e:
-    st.error("No se pudo conectar con la base de datos. Verificá los Secrets.")
+    st.error(f"Error técnico: {e}")
