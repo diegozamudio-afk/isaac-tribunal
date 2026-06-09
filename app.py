@@ -4,61 +4,59 @@ import gspread
 import json
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(layout="wide")
+# Configuración de página
+st.set_page_config(page_title="Dashboard ISAAC", layout="wide")
 
-st.title("🔎 Diagnóstico de Datos")
-
-try:
-    # 1. Conexión
+def conectar_sheets():
+    # Asegurate de tener el secreto 'gcp_service_account' en los settings de la app
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"])
     cliente = gspread.authorize(creds)
     archivo = cliente.open("ISAAC - Monitoreo")
-    hoja = archivo.worksheet("Hoja 1")
-    
-    # 2. Leer datos
+    return archivo.worksheet("Hoja 1") 
+
+st.title("📊 Dashboard ISAAC - Control Móvil")
+
+# --- BOTONES DE CONTROL ---
+col1, col2 = st.columns(2)
+if col1.button("🔄 Recargar Datos"):
+    st.rerun()
+
+if col2.button("⚠️ Reiniciar Base de Datos"):
+    try:
+        hoja = conectar_sheets()
+        hoja.delete_rows(2, hoja.row_count)
+        st.success("Base reiniciada correctamente.")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error al reiniciar: {e}")
+
+# --- PROCESAMIENTO Y MAPA ---
+try:
+    hoja = conectar_sheets()
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
-   # 4. Probar conversión forzada y corregir la escala
-    if 'lat' in df.columns and 'lon' in df.columns:
-        # Convertimos a números
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+
+    if not df.empty:
+        # Convertimos a número y corregimos la escala dividiendo por 10.000
+        # Esto transforma -268241 en -26.8241
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce') / 10000
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce') / 10000
         
-        # CORRECCIÓN DE ESCALA: Dividimos por 10.000 para recuperar el decimal
-        df['lat'] = df['lat'] / 10000
-        df['lon'] = df['lon'] / 10000
+        # Filtramos filas con datos válidos para el mapa
+        df_mapa = df.dropna(subset=['lat', 'lon'])
         
-        st.write("Datos procesados y corregidos (deberían verse como -26.8241):")
-        st.dataframe(df[['lat', 'lon']])
-        
-        # 5. Graficar
-        st.map(df.dropna(subset=['lat', 'lon']))
-        
-        # Ahora verificamos si los datos tienen sentido
-        st.write("Datos corregidos (lat/lon):")
-        st.dataframe(df[['lat', 'lon']])
-        
-        # Dibujamos
-        st.map(df.dropna(subset=['lat', 'lon']))
-    
-    # 3. MOSTRAR LA VERDAD
-    st.write("Columnas detectadas:", df.columns.tolist())
-    st.dataframe(df)
-    
-    # 4. Probar conversión forzada
-    # IMPORTANTE: Asegurate que estos nombres coincidan con lo que salga arriba en "Columnas detectadas"
-    if 'lat' in df.columns and 'lon' in df.columns:
-        df['lat'] = pd.to_numeric(df['lat'].astype(str).str.replace(',', '.'), errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'].astype(str).str.replace(',', '.'), errors='coerce')
-        
-        st.write("Datos procesados (deberían ser números):")
-        st.dataframe(df[['lat', 'lon']])
-        
-        # 5. Intentar graficar
-        st.map(df.dropna(subset=['lat', 'lon']))
+        if not df_mapa.empty:
+            st.write(f"### Mapa de Infracciones ({len(df_mapa)} registros)")
+            # st.map usa la infraestructura nativa de Streamlit, es lo más estable
+            st.map(df_mapa)
+            
+            st.write("### Detalle de registros:")
+            st.dataframe(df)
+        else:
+            st.warning("No hay coordenadas válidas para mostrar en el mapa.")
     else:
-        st.error("¡Las columnas 'lat' y 'lon' no se llaman así en tu Sheets! Revisá los encabezados.")
+        st.info("La planilla está vacía.")
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error técnico: {e}")
