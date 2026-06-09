@@ -6,7 +6,7 @@ from google.oauth2.service_account import Credentials
 import folium
 from streamlit_folium import st_folium
 
-# Configuración
+# Configuración inicial
 st.set_page_config(page_title="Dashboard ISAAC", layout="wide")
 
 def conectar_sheets():
@@ -14,24 +14,21 @@ def conectar_sheets():
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
     cliente = gspread.authorize(creds)
-    
-    # Abrimos el archivo por nombre
+    # Abrimos el archivo y la pestaña exacta
     archivo = cliente.open("ISAAC - Monitoreo")
-    
-    # ABRIMOS LA PESTAÑA EXACTA CON EL ESPACIO
-    return archivo.worksheet("Hoja 1")
+    return archivo.worksheet("Hoja 1") 
+
 st.title("📊 Dashboard de Control - ISAAC")
 
 # --- BOTÓN DE LIMPIEZA ---
 if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
     try:
         hoja = conectar_sheets()
-        # Borra desde la fila 2 hasta el final, dejando los encabezados en la fila 1
         hoja.delete_rows(2, hoja.row_count)
-        st.sidebar.success("¡Mapa reseteado a 0!")
+        st.sidebar.success("¡Mapa reseteado!")
         st.rerun()
     except Exception as e:
-        st.sidebar.error(f"Error al limpiar: {e}")
+        st.sidebar.error(f"Error: {e}")
 
 # --- CARGA Y MAPA ---
 try:
@@ -39,15 +36,28 @@ try:
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
     
-    st.write("---")
-    st.write("DEBUG: Contenido del DataFrame:")
-    st.write(df)  # <--- ESTO ES LA CLAVE
+    # Aseguramos que lat y lon sean números
+    if not df.empty:
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+        df = df.dropna(subset=['lat', 'lon'])
     
-    if not df.empty and 'lat' in df.columns:
-        st.write(f"Total infracciones: {len(df)}")
-        # ... resto de tu código del mapa ...
+    if not df.empty:
+        st.write(f"Infracciones registradas: {len(df)}")
+        
+        # Mapa
+        mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
+        for _, row in df.iterrows():
+            folium.CircleMarker(
+                [row['lat'], row['lon']], 
+                radius=8, 
+                color='red', 
+                popup=f"Patente: {row['Patente']} - {row['Infraccion']}"
+            ).add_to(mapa)
+        
+        st_folium(mapa, width=800, height=500)
     else:
-        st.warning("⚠️ El DataFrame está vacío o no encuentra la columna 'lat'.")
-        st.write("Columnas detectadas:", df.columns.tolist())
+        st.info("Esperando nuevos datos en la planilla...")
+        
 except Exception as e:
-    st.error(f"Error técnico: {e}")
+    st.error(f"Error de conexión: {e}")
