@@ -6,6 +6,9 @@ from google.oauth2.service_account import Credentials
 import folium
 from streamlit_folium import st_folium
 
+# Configuración
+st.set_page_config(page_title="Dashboard ISAAC", layout="wide")
+
 def conectar_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
@@ -13,21 +16,35 @@ def conectar_sheets():
     cliente = gspread.authorize(creds)
     return cliente.open("ISAAC - Monitoreo").sheet1
 
-st.title("📊 Dashboard ISAAC")
+st.title("📊 Dashboard de Control - ISAAC")
 
+# --- BOTÓN DE LIMPIEZA ---
+if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
+    try:
+        hoja = conectar_sheets()
+        # Borra desde la fila 2 hasta el final, dejando los encabezados en la fila 1
+        hoja.delete_rows(2, hoja.row_count)
+        st.sidebar.success("¡Mapa reseteado a 0!")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Error al limpiar: {e}")
+
+# --- CARGA Y MAPA ---
 try:
     hoja = conectar_sheets()
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
     
     if not df.empty and 'lat' in df.columns:
-        st.write(f"Infracciones cargadas: {len(df)}")
-        # Mapa centrado en la media de las coordenadas
+        st.write(f"Total infracciones detectadas: {len(df)}")
+        
+        # Mapa
         mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
         for _, row in df.iterrows():
-            folium.CircleMarker([row['lat'], row['lon']], radius=8, color='red').add_to(mapa)
-        st_folium(mapa, width=700)
+            folium.CircleMarker([row['lat'], row['lon']], radius=8, color='red', popup=row['Infraccion']).add_to(mapa)
+        
+        st_folium(mapa, width=800, height=500)
     else:
-        st.info("Esperando nuevos datos...")
+        st.info("Esperando datos desde el agente...")
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error("No se pudo conectar con la base de datos. Verificá los Secrets.")
