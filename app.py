@@ -18,43 +18,41 @@ def conectar_sheets():
 
 st.title("📊 Dashboard de Control - ISAAC")
 
-# --- BARRA LATERAL (Botones y Datos) ---
+# Botón de limpieza
 if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
-    try:
-        hoja = conectar_sheets()
-        hoja.delete_rows(2, hoja.row_count)
-        st.sidebar.success("¡Datos borrados!")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Error al limpiar: {e}")
+    hoja = conectar_sheets()
+    hoja.delete_rows(2, hoja.row_count)
+    st.rerun()
 
-# --- LÓGICA DE CARGA ---
+# --- LÓGICA DE PROCESAMIENTO ---
 try:
     hoja = conectar_sheets()
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
 
     if not df.empty:
-        # Mostramos la tabla para verificar qué está pasando
-        st.write("### Registros actuales:")
-        st.dataframe(df)
+        # AQUÍ ESTÁ EL CAMBIO: Reemplazamos coma por punto antes de convertir
+        for col in ['lat', 'lon']:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.replace(',', '.')
+                df[col] = pd.to_numeric(df[col], errors='coerce')
         
-        # Procesamiento para el mapa
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-        df_mapa = df.dropna(subset=['lat', 'lon'])
+        df = df.dropna(subset=['lat', 'lon'])
         
-        if not df_mapa.empty:
-            st.write("### Mapa de Infracciones:")
-            mapa = folium.Map(location=[df_mapa['lat'].mean(), df_mapa['lon'].mean()], zoom_start=14)
-            for _, row in df_mapa.iterrows():
-                # Manejo seguro de columnas
-                desc = row['Infraccion'] if 'Infraccion' in row else "Sin detalle"
-                folium.CircleMarker([row['lat'], row['lon']], radius=8, color='red', popup=desc).add_to(mapa)
+        if not df.empty:
+            st.write(f"Infracciones registradas: {len(df)}")
+            mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
+            for _, row in df.iterrows():
+                folium.CircleMarker(
+                    [row['lat'], row['lon']], 
+                    radius=8, 
+                    color='red',
+                    popup=f"Patente: {row['Patente']} - {row['Infraccion']}"
+                ).add_to(mapa)
             st_folium(mapa, width=800, height=400)
         else:
-            st.warning("No hay coordenadas válidas para mostrar en el mapa.")
+            st.warning("Datos recibidos pero las coordenadas no son numéricas.")
     else:
-        st.info("La planilla está vacía.")
+        st.info("Esperando datos en la planilla...")
 except Exception as e:
-    st.error(f"Error crítico: {e}")
+    st.error(f"Error: {e}")
