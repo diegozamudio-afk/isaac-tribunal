@@ -48,3 +48,23 @@ if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
     hoja.delete_rows(2, hoja.row_count)
     st.sidebar.success("Mapa reseteado a 0.")
     st.rerun() # Recarga la página para mostrar el mapa vacío
+    # --- CARGA AUTOMÁTICA DESDE GOOGLE SHEETS ---
+def obtener_datos():
+    hoja = conectar_sheets() # La función que ya tenías
+    datos = hoja.get_all_records()
+    return pd.DataFrame(datos)
+
+df = obtener_datos()
+
+# --- MAPA DE CALOR DINÁMICO ---
+if not df.empty:
+    mapa = folium.Map(location=[df.lat.mean(), df.lon.mean()], zoom_start=13)
+    for i, row in df.iterrows():
+        folium.CircleMarker(
+            location=[row['lat'], row['lon']],
+            radius=10,
+            color='red'
+        ).add_to(mapa)
+    st_folium(mapa)
+else:
+    st.write("Esperando nuevas infracciones...")
