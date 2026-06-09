@@ -15,19 +15,19 @@ def conectar_sheets():
 
 st.title("📊 Dashboard ISAAC")
 
-# Obtener datos
 try:
     hoja = conectar_sheets()
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
     
     if not df.empty and 'lat' in df.columns:
-        st.write(f"Total infracciones: {len(df)}")
+        st.write(f"Infracciones cargadas: {len(df)}")
+        # Mapa centrado en la media de las coordenadas
         mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
         for _, row in df.iterrows():
             folium.CircleMarker([row['lat'], row['lon']], radius=8, color='red').add_to(mapa)
         st_folium(mapa, width=700)
     else:
-        st.info("Esperando datos...")
+        st.info("Esperando nuevos datos...")
 except Exception as e:
-    st.error(f"Error de conexión: {e}")
+    st.error(f"Error: {e}")
