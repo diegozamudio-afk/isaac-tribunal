@@ -41,3 +41,10 @@ with col2:
     st.metric(label="Precisión OCR (Cámaras)", value="98.5%")
 
 st.success("🟢 Sistema ISAAC Operativo y Enlazado a la Base de Datos.")
+# --- BOTÓN PARA LIMPIAR DATOS ---
+if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
+    # Esto borra todas las filas excepto la cabecera (fila 1)
+    hoja = conectar_sheets() # Asegurate de tener la conexión a sheets aquí
+    hoja.delete_rows(2, hoja.row_count)
+    st.sidebar.success("Mapa reseteado a 0.")
+    st.rerun() # Recarga la página para mostrar el mapa vacío
