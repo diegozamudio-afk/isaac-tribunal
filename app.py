@@ -1,70 +1,35 @@
 import streamlit as st
 import pandas as pd
+import gspread
+import json
+from google.oauth2.service_account import Credentials
 import folium
 from streamlit_folium import st_folium
 
-# Configuración de la página
-st.set_page_config(page_title="ISAAC - Tribunal de Faltas", layout="wide")
+# 1. Definir la función de conexión PRIMERO
+def conectar_sheets():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    # Asegurate de que el secreto sea el mismo nombre que en el Agente
+    credenciales_dict = json.loads(st.secrets["gcp_service_account"])
+    creds = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
+    cliente = gspread.authorize(creds)
+    return cliente.open("ISAAC - Monitoreo").sheet1
 
-st.title("🚦 ISAAC - Monitoreo Activo de Infracciones")
-st.markdown("### Mapa de Calor y Zonas Críticas")
-
-# Datos simulados para la demostración (Latitudes y Longitudes de Tucumán)
-data = pd.DataFrame({
-    'Barrio/Zona': ['Centro', 'Barrio Norte', 'Yerba Buena', 'Terminal'],
-    'lat': [-26.8300, -26.8150, -26.8100, -26.8350],
-    'lon': [-65.2050, -65.2020, -65.3000, -65.1950],
-    'infracciones': [85, 42, 60, 25]
-})
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    # Creación del Mapa de Calor
-    mapa = folium.Map(location=[-26.8241, -65.2072], zoom_start=12) # Centro
-    for i, row in data.iterrows():
-        folium.CircleMarker(
-            location=[row['lat'], row['lon']],
-            radius=row['infracciones'] / 3,
-            color='red',
-            fill=True,
-            fill_color='red',
-            tooltip=f"{row['Barrio/Zona']}: {row['infracciones']} Actas"
-        ).add_to(mapa)
-    
-    st_folium(mapa, width=700, height=400)
-
-with col2:
-    st.info("📊 **Métricas en Tiempo Real**")
-    st.metric(label="Actas Procesadas Hoy", value="212", delta="15% vs ayer")
-    st.metric(label="Agentes en Calle", value="14")
-    st.metric(label="Precisión OCR (Cámaras)", value="98.5%")
-
-st.success("🟢 Sistema ISAAC Operativo y Enlazado a la Base de Datos.")
-# --- BOTÓN PARA LIMPIAR DATOS ---
-if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
-    # Esto borra todas las filas excepto la cabecera (fila 1)
-    hoja = conectar_sheets() # Asegurate de tener la conexión a sheets aquí
-    hoja.delete_rows(2, hoja.row_count)
-    st.sidebar.success("Mapa reseteado a 0.")
-    st.rerun() # Recarga la página para mostrar el mapa vacío
-    # --- CARGA AUTOMÁTICA DESDE GOOGLE SHEETS ---
+# 2. Definir la función que obtiene los datos
 def obtener_datos():
-    hoja = conectar_sheets() # La función que ya tenías
+    hoja = conectar_sheets() # Ahora sí la va a encontrar
     datos = hoja.get_all_records()
     return pd.DataFrame(datos)
 
+# 3. Resto de tu código para el mapa...
+st.title("📊 Dashboard de Control")
 df = obtener_datos()
 
-# --- MAPA DE CALOR DINÁMICO ---
 if not df.empty:
-    mapa = folium.Map(location=[df.lat.mean(), df.lon.mean()], zoom_start=13)
-    for i, row in df.iterrows():
-        folium.CircleMarker(
-            location=[row['lat'], row['lon']],
-            radius=10,
-            color='red'
-        ).add_to(mapa)
-    st_folium(mapa)
-else:
-    st.write("Esperando nuevas infracciones...")
+    # Asegurate de que las columnas se llamen 'lat' y 'lon'
+    # Si en tu Sheets se llaman diferente, cambialo acá:
+    mapa = folium.Map(location=[df['lat'].iloc[0], df['lon'].iloc[0]], zoom_start=13)
+    # ... código del mapa ...
