@@ -10,49 +10,57 @@ st.set_page_config(page_title="Dashboard ISAAC", layout="wide")
 
 def conectar_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    # Asegurate de tener el secreto 'gcp_service_account' en los settings de la app
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
     cliente = gspread.authorize(creds)
     archivo = cliente.open("ISAAC - Monitoreo")
     return archivo.worksheet("Hoja 1") 
 
-st.title("📊 Dashboard de Control - ISAAC")
+st.title("📊 Dashboard ISAAC - Control Móvil")
 
-# Botón de limpieza
-if st.sidebar.button("⚠️ Reiniciar Mapa de Calor"):
+# Botón de reinicio en barra lateral
+if st.sidebar.button("⚠️ Reiniciar Base de Datos"):
     hoja = conectar_sheets()
     hoja.delete_rows(2, hoja.row_count)
     st.rerun()
 
-# --- LÓGICA DE PROCESAMIENTO ---
 try:
     hoja = conectar_sheets()
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
 
     if not df.empty:
-        # AQUÍ ESTÁ EL CAMBIO: Reemplazamos coma por punto antes de convertir
+        # Limpieza de datos (Coma a punto y conversión a número)
         for col in ['lat', 'lon']:
             if col in df.columns:
-                df[col] = df[col].astype(str).str.replace(',', '.')
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = df[col].astype(str).str.replace(',', '.').astype(float)
         
-        df = df.dropna(subset=['lat', 'lon'])
+        # Filtramos filas vacías
+        df_mapa = df.dropna(subset=['lat', 'lon'])
         
-        if not df.empty:
-            st.write(f"Infracciones registradas: {len(df)}")
-            mapa = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=14)
-            for _, row in df.iterrows():
+        if not df_mapa.empty:
+            st.write(f"Infracciones activas: {len(df_mapa)}")
+            
+            # Mapa con tiles estables para Streamlit Cloud
+            mapa = folium.Map(
+                location=[df_mapa['lat'].mean(), df_mapa['lon'].mean()], 
+                zoom_start=14,
+                tiles='CartoDB positron'
+            )
+            
+            for _, row in df_mapa.iterrows():
+                popup_msg = f"Patente: {row.get('Patente', 'N/A')} - {row.get('Infraccion', 'Multa')}"
                 folium.CircleMarker(
                     [row['lat'], row['lon']], 
-                    radius=8, 
-                    color='red',
-                    popup=f"Patente: {row['Patente']} - {row['Infraccion']}"
+                    radius=10, color='red', fill=True, popup=popup_msg
                 ).add_to(mapa)
-            st_folium(mapa, width=800, height=400)
+            
+            st_folium(mapa, width=800, height=500)
         else:
-            st.warning("Datos recibidos pero las coordenadas no son numéricas.")
+            st.warning("Datos recibidos pero las coordenadas no son válidas.")
     else:
-        st.info("Esperando datos en la planilla...")
+        st.info("Esperando infracciones...")
+
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error técnico: {e}")
