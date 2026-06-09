@@ -19,6 +19,16 @@ try:
     # 2. Leer datos
     datos = hoja.get_all_records()
     df = pd.DataFrame(datos)
+    # Convertimos a número forzando el formato
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce') / 10000
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce') / 10000
+        
+        # Ahora verificamos si los datos tienen sentido
+        st.write("Datos corregidos (lat/lon):")
+        st.dataframe(df[['lat', 'lon']])
+        
+        # Dibujamos
+        st.map(df.dropna(subset=['lat', 'lon']))
     
     # 3. MOSTRAR LA VERDAD
     st.write("Columnas detectadas:", df.columns.tolist())
