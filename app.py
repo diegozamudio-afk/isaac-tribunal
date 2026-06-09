@@ -14,7 +14,10 @@ def conectar_sheets():
     credenciales_dict = json.loads(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
     cliente = gspread.authorize(creds)
-    return cliente.open("ISAAC - Monitoreo").sheet1
+    # Abrimos el archivo por nombre
+    archivo = cliente.open("ISAAC - Monitoreo")
+    # Abrimos la pestaña por su nombre (verificá que se llame 'Hoja1' o como la tengas)
+    return archivo.worksheet("Hoja1")
 
 st.title("📊 Dashboard de Control - ISAAC")
 
