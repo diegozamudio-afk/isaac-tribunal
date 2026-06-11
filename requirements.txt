@@ -3,4 +3,6 @@ gspread
 google-auth
 streamlit-geolocation
 pandas
-
+plotly
+google-auth-oauthlib
+google-auth-httplib2
